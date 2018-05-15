@@ -76,6 +76,20 @@ class bd_bot(discord.Client):
             file = open('conf/main.json', 'w')
             json.dump(settings, file, sort_keys=True)
 
+    def __load_modules(self):
+        path=""
+        if "module_dir" in self.config:
+            path=self.config["module_dir"]
+        else:
+            path="modules/"
+
+        if (not os.path.isdir(path)):
+            self.logger.error("No modules directory found!")
+            self.active = False
+            return
+
+        
+
     def debug(self):
         self.__load_conf()
 
