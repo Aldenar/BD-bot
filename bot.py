@@ -3,12 +3,13 @@ import asyncio
 import logging
 import os
 import json
+import importlib
 
 
 class bd_bot(discord.Client):
     active = bool
     logger = None
-    servers = dict
+    server_lobbies = dict
     config = dict
     admins = dict
 
@@ -26,7 +27,7 @@ class bd_bot(discord.Client):
     def __create_conf():
         config = {
             "global_settings": {
-
+                "module_dir": "modules/"
         },
             "server_lobbies": {
 
@@ -59,11 +60,11 @@ class bd_bot(discord.Client):
         if 'server_lobbies' not in config_dict:
             repair_conf = True
             config_dict['server_lobbies'] = {}
-        self.servers = config_dict['server_lobbies']
+        self.server_lobbies = config_dict['server_lobbies']
 
         if 'global_settings' not in config_dict:
             repair_conf = True
-            config_dict['global_settings'] = {}
+            config_dict['global_settings'] = {"module_dir": "modules/"}
         self.config = config_dict['global_settings']
 
         if 'admins' not in config_dict:
@@ -72,23 +73,37 @@ class bd_bot(discord.Client):
         self.admins = config_dict['admins']
 
         if repair_conf:
-            settings = {'server_lobbies': self.servers, 'global_settings': self.config, 'admins': self.admins}
+            settings = {'server_lobbies': self.server_lobbies, 'global_settings': self.config, 'admins': self.admins}
             file = open('conf/main.json', 'w')
             json.dump(settings, file, sort_keys=True)
 
     def __load_modules(self):
-        path=""
-        if "module_dir" in self.config:
-            path=self.config["module_dir"]
-        else:
-            path="modules/"
+        path = ""
 
-        if (not os.path.isdir(path)):
+        if "module_dir" in self.config:
+            path = self.config["module_dir"]
+            self.logger.info("Module dir set by config")
+        else:
+            path = "modules/"
+            self.logger.info("Module dir set statically")
+
+        if not os.path.isdir(path):
             self.logger.error("No modules directory found!")
             self.active = False
+            os.mkdir(path)
             return
 
-        
+        for (dirpath, dirname, filenames) in os.walk(path):
+            for file in filenames:
+                if os.path.splitext(file)[1].lower() != '.py':
+                    filenames.remove(file)
+
+
+
+        self.logger.info("Finished loading modules!")
+        return
+
+
 
     def debug(self):
         self.__load_conf()
@@ -96,6 +111,7 @@ class bd_bot(discord.Client):
     def __init__(self):
         self.__setup_logger()
         self.__load_conf()
+        self.__load_modules()
         super(bd_bot, self).__init__(cache_auth=True)
 
     @asyncio.coroutine
