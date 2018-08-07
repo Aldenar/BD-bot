@@ -3,7 +3,7 @@ import asyncio
 import logging
 import os
 import json
-import importlib
+import importlib.util
 
 
 class bd_bot(discord.Client):
@@ -12,6 +12,8 @@ class bd_bot(discord.Client):
     server_lobbies = dict
     config = dict
     admins = dict
+    module_dir = ""
+    modules = []
 
     def __setup_logger(self):
         self.logger = logging.getLogger(__name__)
@@ -77,30 +79,53 @@ class bd_bot(discord.Client):
             file = open('conf/main.json', 'w')
             json.dump(settings, file, sort_keys=True)
 
-    def __load_modules(self):
-        path = ""
+
+
+    def __check_modules(self):
+        for module in self.modules:
+            if (module.hooks is None) or (module.init is None):
+                self.modules.remove(module)
+                self.logger.warning("Invalid module {}, no hooks table or init method found!".format(module))
+
+    def __import_modules(self, module_array):
+        for module in module_array:
+            if not os.path.isfile(module):
+                self.logger.warning("Module file {} not found!".format(module))
+                continue
+
+            #Dynamic module loading from file
+            spec = importlib.util.spec_from_file_location(module, self.module_dir+"/"+module)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            self.modules.append(module)
+        self.__check_modules()
+
+
+
+    def __get_modules(self):
 
         if "module_dir" in self.config:
-            path = self.config["module_dir"]
+            self.module_dir  = self.config["module_dir"]
             self.logger.info("Module dir set by config")
         else:
-            path = "modules/"
+            self.module_dir = "modules/"
             self.logger.info("Module dir set statically")
 
         if not os.path.isdir(path):
             self.logger.error("No modules directory found!")
             self.active = False
-            os.mkdir(path)
             return
 
-        for (dirpath, dirname, filenames) in os.walk(path):
+        for (dirpath, dirname, filenames) in os.walk(self.module_dir):
             for file in filenames:
                 if os.path.splitext(file)[1].lower() != '.py':
                     filenames.remove(file)
-
+        self.__check_load_module(file)
 
 
         self.logger.info("Finished loading modules!")
+
         return
 
 
@@ -111,7 +136,7 @@ class bd_bot(discord.Client):
     def __init__(self):
         self.__setup_logger()
         self.__load_conf()
-        self.__load_modules()
+        self.__get_modules()
         super(bd_bot, self).__init__(cache_auth=True)
 
     @asyncio.coroutine
