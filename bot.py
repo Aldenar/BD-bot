@@ -80,11 +80,19 @@ class bd_bot(discord.Client):
             json.dump(settings, file, sort_keys=True)
 
     def __check_set_hooks(self, module):
-        hooks = getattr(module, "hooks")
-        for hook in hooks:
+        for hook in module.hooks:
             if (getattr(module, hook) is None):
                 self.logger.warn("No corresponding event hook function found for {}!".format(hook))
-
+                module.hooks.remove(hook)
+                continue
+            if (getattr(super(bd_bot, self), hook) is None):
+                self.logger.warn("No such event hook available {}!".format(hook))
+                module.hooks.remove(hook)
+                continue
+            if (getattr(self,hook) is None):
+                self.logger.warn("Unknown / unsupported event hook {}!".format(hook))
+                module.hooks.remove(hook)
+                continue
 
 
     def __check_modules(self):
