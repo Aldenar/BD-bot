@@ -9,7 +9,9 @@ import importlib.util
 class bd_bot(discord.Client):
     active = bool
     logger = None
+    server_lobbies = dict
     config = dict
+    admins = dict
     module_dir = ""
     modules = []
     hooks = {}
@@ -57,11 +59,20 @@ class bd_bot(discord.Client):
             raise RuntimeError("Failed to open main configuration file!")
 
         config_dict = json.load(file)
+#        if 'server_lobbies' not in config_dict:
+#            repair_conf = True
+#            config_dict['server_lobbies'] = {}
+#        self.server_lobbies = config_dict['server_lobbies']
 
         if 'global_settings' not in config_dict:
             repair_conf = True
             config_dict['global_settings'] = {"module_dir": "modules/"}
         self.config = config_dict['global_settings']
+
+#        if 'admins' not in config_dict:
+#            repair_conf = True
+#            config_dict['admins'] = {}
+#        self.admins = config_dict['admins']
 
         if repair_conf:
             settings = {'server_lobbies': self.server_lobbies, 'global_settings': self.config, 'admins': self.admins}
@@ -70,18 +81,19 @@ class bd_bot(discord.Client):
 
     def __check_set_hooks(self, module):
         for hook in module.hooks:
-            if getattr(module, hook) is None:
+            if (getattr(module, hook) is None):
                 self.logger.warn("No corresponding event hook function found for {}!".format(hook))
                 module.hooks.remove(hook)
                 continue
-            if getattr(super(bd_bot, self), hook) is None:
+            if (getattr(super(bd_bot, self), hook) is None):
                 self.logger.warn("No such event hook available {}!".format(hook))
                 module.hooks.remove(hook)
                 continue
-            if getattr(self,hook) is None:
+            if (getattr(self,hook) is None):
                 self.logger.warn("Unknown / unsupported event hook {}!".format(hook))
                 module.hooks.remove(hook)
                 continue
+
 
     def __check_modules(self):
         for module in self.modules:
@@ -90,8 +102,6 @@ class bd_bot(discord.Client):
             if (hooks is None) or (init is None):
                 self.modules.remove(module)
                 self.logger.warning("Invalid module {}, no hooks table or init method found!".format(module))
-                continue
-            self.__check_set_hooks(module)
 
     def __import_modules(self, module_array):
         self.logger.info("Importing modules!")
@@ -109,6 +119,8 @@ class bd_bot(discord.Client):
             self.modules.append(module)
         self.__check_modules()
 
+
+
     def __get_modules(self):
 
         if "module_dir" in self.config:
@@ -118,7 +130,7 @@ class bd_bot(discord.Client):
             self.module_dir = "modules/"
             self.logger.info("Module dir set statically")
 
-        if not os.path.isdir(self.module_dir):
+        if not os.path.isdir(path):
             self.logger.error("No modules directory found!")
             self.active = False
             return
@@ -128,8 +140,13 @@ class bd_bot(discord.Client):
                 if os.path.splitext(file)[1].lower() != '.py':
                     filenames.remove(file)
         self.__import_modules(filenames)
+
+
         self.logger.info("Finished loading modules!")
+
         return
+
+
 
     def debug(self):
         self.__load_conf()
