@@ -11,7 +11,7 @@ class bd_bot(discord.Client):
     logger = None
     config = dict
     module_dir = ""
-    modules = []
+    module_objs = []
     hooks = {}
 
     def __setup_logger(self):
@@ -64,55 +64,53 @@ class bd_bot(discord.Client):
         self.config = config_dict['global_settings']
 
         if repair_conf:
-            settings = {'server_lobbies': self.server_lobbies, 'global_settings': self.config, 'admins': self.admins}
+            settings = {'global_settings': self.config, 'admins': self.admins}
             file = open('conf/main.json', 'w')
             json.dump(settings, file, sort_keys=True)
 
     def __check_set_hooks(self, module):
         for hook in module.hooks:
-            if getattr(module, hook) is None:
-                self.logger.warn("No corresponding event hook function found for {}!".format(hook))
-                module.hooks.remove(hook)
-                continue
-            if getattr(super(bd_bot, self), hook) is None:
-                self.logger.warn("No such event hook available {}!".format(hook))
-                module.hooks.remove(hook)
-                continue
-            if getattr(self,hook) is None:
-                self.logger.warn("Unknown / unsupported event hook {}!".format(hook))
-                module.hooks.remove(hook)
-                continue
+            if getattr(module, hook, None) is None:
+                self.logger.warning("No corresponding event hook \"{}\" function found (module \"{}\")".format(hook, module.name))
+                return
+            if getattr(discord, hook, None) is None:
+                self.logger.warning("No such event hook \"{}\" available (module \"{}\")!".format(hook, module.name))
+                return
+            if getattr(self, hook, None) is None:
+                self.logger.warning("Unknown / unsupported event hook \"{}\" (module \"{}\")!".format(hook, module.name))
+                return
+            self.hooks[hook] += module
 
-    def __check_modules(self):
-        for module in self.modules:
-            hooks = getattr(module, "hooks")
-            init = getattr(module, "init")
-            if (hooks is None) or (init is None):
-                self.modules.remove(module)
-                self.logger.warning("Invalid module {}, no hooks table or init method found!".format(module))
-                continue
-            self.__check_set_hooks(module)
+    def __check_module(self, module):
+        hooks = getattr(module, "hooks", None)
+        name = getattr(module, "name", None)
+        init = getattr(module, "init", None)
+        if (hooks is None) or (name is None) or (init is None):
+            self.logger.warning("Invalid module {}, no hooks table, name or init method found!".format(module))
+            return
+        self.__check_set_hooks(module)
 
     def __import_modules(self, module_array):
         self.logger.info("Importing modules!")
         for module in module_array:
-            if not os.path.isfile(module):
+            if not os.path.isfile(self.module_dir+module):
                 self.logger.warning("Module file {} not found!".format(module))
                 continue
 
-            #Dynamic module loading from file
-            spec = importlib.util.spec_from_file_location(module, self.module_dir+"/"+module)
+            #Dynamic python source code loadup from file
+            spec = importlib.util.spec_from_file_location(module, self.module_dir+module)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
             #And we store it in a global modules array
-            self.modules.append(module)
-        self.__check_modules()
+            self.__check_module(module)
 
     def __get_modules(self):
 
         if "module_dir" in self.config:
-            self.module_dir  = self.config["module_dir"]
+            self.module_dir = self.config["module_dir"]
+            if self.module_dir[len(self.module_dir)-1] != '/':
+                self.module_dir += "/"
             self.logger.info("Module dir set by config")
         else:
             self.module_dir = "modules/"
@@ -139,10 +137,13 @@ class bd_bot(discord.Client):
         self.__load_conf()
         self.__get_modules()
         super(bd_bot, self).__init__(cache_auth=True)
+        self.logger.info("Init phase done!")
 
     @asyncio.coroutine
     async def on_ready(self):
         self.logger.info("Client is ready!")
+        for module in self.hooks["on_ready"]:
+            module.on_ready()
         self.active = True
 
     @asyncio.coroutine
