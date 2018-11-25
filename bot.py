@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import json
+import sys
 import importlib.util
 
 
@@ -11,7 +12,6 @@ class bd_bot(discord.Client):
     logger = None
     config = dict
     module_dir = ""
-    module_objs = []
     hooks = {}
 
     def __setup_logger(self):
@@ -70,12 +70,15 @@ class bd_bot(discord.Client):
 
     def __check_set_hooks(self, module):
         for hook in module.hooks:
+            #If the module doesn't contain appropriate handler function
             if getattr(module, hook, None) is None:
                 self.logger.warning("No corresponding event hook \"{}\" function found (module \"{}\")".format(hook, module.name))
                 return
+            #If we did not yet implement the event handler
             if getattr(discord, hook, None) is None:
                 self.logger.warning("No such event hook \"{}\" available (module \"{}\")!".format(hook, module.name))
                 return
+            #If the event handler doesn't exist at all
             if getattr(self, hook, None) is None:
                 self.logger.warning("Unknown / unsupported event hook \"{}\" (module \"{}\")!".format(hook, module.name))
                 return
@@ -143,16 +146,28 @@ class bd_bot(discord.Client):
     async def on_ready(self):
         self.logger.info("Client is ready!")
         for module in self.hooks["on_ready"]:
-            module.on_ready()
+            module.on_ready(self)
         self.active = True
 
     @asyncio.coroutine
     async def on_message(self, message):
-            return None
+        self.logger.info("Received a message!")
+        self.hooks = self.hooks
+        try:
+            for module in self.hooks["on_message"]:
+                module.on_message(self, message)
+        except:
+            self.logger.exception("Got an exception: "+sys.exc_info()[0])
 
     @asyncio.coroutine
     async def on_member_join(self, member):
-        return None
+        self.logger.info("A new member joined!!")
+        self.hooks = self.hooks
+        try:
+            for module in self.hooks["on_message"]:
+                module.on_member_join(self, member)
+        except:
+            self.logger.exception("Got an exception: " + sys.exc_info()[0])
 
     @asyncio.coroutine
     async def on_error(self, event, *args, **kwargs):
