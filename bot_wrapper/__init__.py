@@ -7,7 +7,7 @@ import sys
 import importlib.util
 
 
-class bd_bot(discord.Client):
+class my_bot(discord.Client):
     active = bool
     logger = None
     config = dict
@@ -30,9 +30,6 @@ class bd_bot(discord.Client):
             "global_settings": {
                 "module_dir": "modules/"
         },
-            "server_lobbies": {
-
-            },
             "admins": {
 
             }
@@ -139,7 +136,7 @@ class bd_bot(discord.Client):
         self.__setup_logger()
         self.__load_conf()
         self.__get_modules()
-        super(bd_bot, self).__init__(cache_auth=True)
+        super(my_bot, self).__init__(cache_auth=True)
         self.logger.info("Init phase done!")
 
     @asyncio.coroutine
@@ -172,4 +169,4 @@ class bd_bot(discord.Client):
     @asyncio.coroutine
     async def on_error(self, event, *args, **kwargs):
         self.logger.error("An error has occurred in the event {}[args={}, kwargs={}]".format(event, args, kwargs))
-        super(bd_bot, self).on_error(event, args, kwargs)
+        super(my_bot, self).on_error(event, args, kwargs)
