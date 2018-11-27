@@ -29,7 +29,7 @@ class my_bot(discord.Client):
         config = {
             "global_settings": {
                 "module_dir": "modules/"
-        },
+            },
             "admins": {
 
             }
@@ -53,15 +53,20 @@ class my_bot(discord.Client):
             self.logger.critical("Failed to open main configuration file!")
             raise RuntimeError("Failed to open main configuration file!")
 
-        config_dict = json.load(file)
+        config_file_cont = json.load(file)
 
-        if 'global_settings' not in config_dict:
+        if 'global_settings' not in config_file_cont:
             repair_conf = True
-            config_dict['global_settings'] = {"module_dir": "modules/"}
-        self.config = config_dict['global_settings']
+            config_file_cont['global_settings'] = {"module_dir": "modules/"}
+        self.config = config_file_cont['global_settings']
+
+        if 'admins' not in config_file_cont:
+            repair_conf = True
+            config_file_cont['admins'] = {}
+        self.admins = config_file_cont['admins']
 
         if repair_conf:
-            settings = {'global_settings': self.config, 'admins': self.admins}
+            settings = {'global_settings': self.config, 'admins': self.admins, "hooks": self.hooks}
             file = open('conf/main.json', 'w')
             json.dump(settings, file, sort_keys=True)
 
@@ -79,13 +84,14 @@ class my_bot(discord.Client):
             if getattr(self, hook, None) is None:
                 self.logger.warning("Unknown / unsupported event hook \"{}\" (module \"{}\")!".format(hook, module.name))
                 return
+        for hook in module.hooks:
             self.hooks[hook] += module
+            self.logger.info("Adding hook {}.{}!".format(module.name, hook))
 
     def __check_module(self, module):
         hooks = getattr(module, "hooks", None)
         name = getattr(module, "name", None)
-        init = getattr(module, "init", None)
-        if (hooks is None) or (name is None) or (init is None):
+        if (hooks is None) or (name is None):
             self.logger.warning("Invalid module {}, no hooks table, name or init method found!".format(module))
             return
         self.__check_set_hooks(module)
@@ -142,9 +148,15 @@ class my_bot(discord.Client):
     @asyncio.coroutine
     async def on_ready(self):
         self.logger.info("Client is ready!")
-        for module in self.hooks["on_ready"]:
-            module.on_ready(self)
-        self.active = True
+        try:
+            for module in self.hooks["on_ready"]:
+                self.logger.info("Running on_ready for {}".format(module.name))
+                module.on_ready(self)
+            self.active = True
+        except KeyError:
+            self.logger.error("key error")
+        except:
+            self.logger.exception("Yep, that's an error!")
 
     @asyncio.coroutine
     async def on_message(self, message):
@@ -153,8 +165,10 @@ class my_bot(discord.Client):
         try:
             for module in self.hooks["on_message"]:
                 module.on_message(self, message)
+        except KeyError:
+            self.logger.error("key error")
         except:
-            self.logger.exception("Got an exception: "+sys.exc_info()[0])
+            self.logger.exception("Yep, that's an error!")
 
     @asyncio.coroutine
     async def on_member_join(self, member):
@@ -163,10 +177,12 @@ class my_bot(discord.Client):
         try:
             for module in self.hooks["on_message"]:
                 module.on_member_join(self, member)
+        except KeyError:
+            self.logger.error("key error")
         except:
-            self.logger.exception("Got an exception: " + sys.exc_info()[0])
+            self.logger.exception("Yep, that's an error!")
 
-    @asyncio.coroutine
-    async def on_error(self, event, *args, **kwargs):
-        self.logger.error("An error has occurred in the event {}[args={}, kwargs={}]".format(event, args, kwargs))
-        super(my_bot, self).on_error(event, args, kwargs)
+    #@asyncio.coroutine
+    #async def on_error(self, event, *args, **kwargs):
+    #    self.logger.error("An error has occurred in the event {}[args={}, kwargs={}]".format(event, args, kwargs))
+    #    super(my_bot, self).on_error(event, args, kwargs)
