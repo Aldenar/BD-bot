@@ -148,37 +148,41 @@ class my_bot(discord.Client):
     @asyncio.coroutine
     async def on_ready(self):
         self.logger.info("Client is ready!")
+        self.active = True
+
+        if "on_ready" not in self.hooks:
+            return
+
         try:
             for module in self.hooks["on_ready"]:
-                self.logger.info("Running on_ready for {}".format(module.name))
+                self.logger.debug("Running on_ready for {}".format(module.name))
                 module.on_ready(self)
-            self.active = True
-        except KeyError:
-            self.logger.error("key error")
         except:
-            self.logger.exception("Yep, that's an error!")
+            self.logger.exception("An error happened - "+sys.exc_info())
 
     @asyncio.coroutine
     async def on_message(self, message):
-        self.logger.info("Received a message!")
-        self.hooks = self.hooks
+        self.logger.debug("Received a message in {}.{} from {}!".format(message.server.name, message.channel.name, message.author))
+
+        if "on_message" not in self.hooks:
+            return
+
         try:
             for module in self.hooks["on_message"]:
                 module.on_message(self, message)
-        except KeyError:
-            self.logger.error("key error")
         except:
             self.logger.exception("Yep, that's an error!")
 
     @asyncio.coroutine
     async def on_member_join(self, member):
-        self.logger.info("A new member joined!!")
-        self.hooks = self.hooks
+        self.logger.info("Caught member \"{}\"join event in {}".format(member.nick, member.server.name))
+
+        if "on_member_join" not in self.hooks:
+            return
+
         try:
             for module in self.hooks["on_message"]:
                 module.on_member_join(self, member)
-        except KeyError:
-            self.logger.error("key error")
         except:
             self.logger.exception("Yep, that's an error!")
 
