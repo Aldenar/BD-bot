@@ -18,8 +18,8 @@ class my_bot(discord.Client):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('(%(asctime)s) %(levelname)s - "%(message)s" in %(module)s/%(funcName)s')
-        fh = logging.FileHandler('bot.log', 'w')
-        fh.setLevel(logging.DEBUG)
+        fh = logging.FileHandler('bot.log')
+        fh.setLevel(logging.ERROR)
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
         self.logger.info("Initializing!")
@@ -147,6 +147,7 @@ class my_bot(discord.Client):
 
     @asyncio.coroutine
     async def on_ready(self):
+        print("Bot ready")
         self.logger.info("Client is ready!")
         self.active = True
 
@@ -162,6 +163,7 @@ class my_bot(discord.Client):
 
     @asyncio.coroutine
     async def on_message(self, message):
+        print("Received message")
         self.logger.debug("Received a message in {}.{} from {}!".format(message.server.name, message.channel.name, message.author))
 
         if "on_message" not in self.hooks:
